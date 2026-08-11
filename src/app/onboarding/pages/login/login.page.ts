@@ -206,6 +206,7 @@ ngOnInit() {
             localStorage.setItem('sourceId', res.data[0].source_id)
             localStorage.setItem('currentUser', this.username);//userInfo[0].email_id);
             localStorage.setItem('hashToken', res.token);
+            localStorage.setItem('ssoToken', res.sso_token);
             localStorage.setItem('user_id', userInfo[0].user_id);
             localStorage.setItem('user_type', this.userTypeWithMobileAccess);
             localStorage.setItem('first_name', userInfo[0].first_name);

@@ -33,6 +33,9 @@ import { AndroidPermissions } from '@ionic-native/android-permissions/ngx';
 import { LocationAccuracy } from '@ionic-native/location-accuracy/ngx';
 import { ExternalBrowserService } from 'src/app/shared/services/external-browser.service';
 import { InAppBrowser } from '@ionic-native/in-app-browser/ngx';
+import { HTTP } from '@ionic-native/http/ngx';
+import { LoginService } from 'src/app/shared/services/login.service';
+import { from, Observable } from 'rxjs';
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.page.html',
@@ -86,7 +89,9 @@ export class DashboardPage implements OnInit, OnDestroy {
     private loaderService: LoaderService, private connectivity: ConnectivityService, httpBackend: HttpBackend,private renderer: Renderer2,
     private router: Router,
     private externalBrowserService: ExternalBrowserService,
-    private iab: InAppBrowser
+    private iab: InAppBrowser,
+    private httpobj: HTTP,
+  private loginService: LoginService
   ) 
     {
     this.sourceId = localStorage.getItem('sourceId');
@@ -862,10 +867,109 @@ hasAccess(menuRoleIds: any): boolean {
     this.router.navigate(['/add-report'], navigationExtras);
   }
 
-  toAssortReport(){
-    const url = `${this.baseUrl}administrator/Dashboard/assorted_report/violations`
-    this.iab.create(url, '_system');
-    // this.externalBrowserService.openExternalUrl(`${this.baseUrl}administrator/Dashboard/assorted_report/violations`)
+  // toAssortReport(){
+
+  //   const url = `${this.baseUrl}administrator/Dashboard/assorted_report/violations`
+  //   this.iab.create(url, '_system');
+  //   // this.externalBrowserService.openExternalUrl(`${this.baseUrl}administrator/Dashboard/assorted_report/violations`)
+  // }
+
+  toAssortReport() {
+
+  const ssoToken = localStorage.getItem('ssoToken');
+
+  if (!ssoToken) {
+    console.error('SSO token not found');
+    this.loginService.logout();
+    return;
   }
+
+  const url =
+    `${this.baseUrl}sso/assortedReport?token=${encodeURIComponent(ssoToken)}`;
+
+  this.httpobj.setHeader('*', 'Content-Type', 'application/json');
+  this.httpobj.setHeader('*', 'Accept', 'application/json');
+
+  from(this.httpobj.get(url, {}, {})).subscribe(
+    (res: any) => {
+
+      console.log('Assorted report SSO response:', res);
+
+      // Parse response
+      let response: any;
+
+      try {
+        response = res.data?.data
+          ? JSON.parse(res.data.data)
+          : typeof res.data === 'string'
+            ? JSON.parse(res.data)
+            : res.data;
+      } catch (error) {
+        console.error('Unable to parse SSO response', error);
+        return;
+      }
+
+      console.log('Parsed response:', response);
+
+      // SUCCESS
+      if (
+        response?.success === true &&
+        response?.statusCode === 200 &&
+        response?.redirectUrl
+      ) {
+
+        this.iab.create(
+          response.redirectUrl,
+          '_system'
+        );
+
+        return;
+      }
+
+      // TOKEN EXPIRED / UNAUTHORIZED
+      if (
+        response?.statusCode === 401 ||
+        res?.status === 401
+      ) {
+
+        this.loginService.logout();
+        return;
+      }
+
+      console.error(
+        'Assorted report redirect failed:',
+        response
+      );
+    },
+
+    (err: any) => {
+
+      console.error('Assorted report SSO API error:', err);
+
+      // Native HTTP can return 401 through the error callback
+      if (err?.status === 401) {
+        this.loginService.logout();
+        return;
+      }
+
+      // Sometimes the API response body contains statusCode: 401
+      try {
+
+        const errorResponse =
+          typeof err?.error === 'string'
+            ? JSON.parse(err.error)
+            : err?.error;
+
+        if (errorResponse?.statusCode === 401) {
+          this.loginService.logout();
+          return;
+        }
+
+      } catch (parseError) {
+        console.error('Unable to parse error response', parseError);
+      }
+    }
+  );
+}
 
 }

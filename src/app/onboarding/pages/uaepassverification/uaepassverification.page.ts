@@ -141,6 +141,7 @@ export class UaepassverificationPage implements OnInit {
             localStorage.setItem('sourceId', res.data.source_id)
             localStorage.setItem('currentUser', this.username);//userInfo[0].email_id);
             localStorage.setItem('hashToken', res.token);
+            localStorage.setItem('ssoToken', res.sso_token);
             localStorage.setItem('user_id', userInfo.user_id);
             localStorage.setItem('user_type', this.userTypeWithMobileAccess);
             localStorage.setItem('first_name', userInfo.first_name);
